@@ -102,3 +102,5 @@ main{max-width:1240px;margin:0 auto;padding:39px 0 0}.page-heading{display:flex;
 
 @media(pointer:coarse){.tile.selected,.tile.hinted{outline-offset:-2px;outline-width:3px}.tile.selected{filter:brightness(1.12);box-shadow:inset 0 0 0 2px #fff3b9,0 0 12px #f5ca6988}}
 .game-focused .fullscreen-button{padding:0;white-space:nowrap}
+
+.version-label{font-size:10px;font-weight:400;letter-spacing:.3px;opacity:.65;white-space:nowrap;margin-left:8px}.focus-version{display:none}.game-focused .tool-bar{position:relative}.game-focused .focus-version{display:block;position:absolute;right:12px;bottom:0;font-size:8px;line-height:8px;pointer-events:none}

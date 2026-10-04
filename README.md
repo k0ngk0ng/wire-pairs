@@ -116,9 +116,9 @@ npm run build
 
 ## 线上部署
 
-公共镜像：`ghcr.io/k0ngk0ng/wire-pairs`。每次推送 main 后，GitHub Actions 测试并发布 `latest` 和完整提交 SHA 标签。生产使用 SHA 标签锁定版本。
+公共镜像：`ghcr.io/k0ngk0ng/wire-pairs`。推送 main 时执行测试和构建；推送 `v*` Git tag 时发布同名版本、`latest` 和完整提交 SHA 的镜像。页面角落显示构建时注入的 Git tag；本地未指定 `VITE_APP_VERSION` 时显示 `dev`。生产使用版本标签锁定，例如 `v1.1.0`。
 
-`deploy/compose.yaml` 仅从 GHCR 拉取镜像，通过 Nginx 将 HTTPS 转发至 `127.0.0.1:18181`，SQLite 持久化到 `/opt/wire-pairs/data`（UID/GID 1000）。在 `/opt/wire-pairs/.env` 设置 `RELEASE_TAG=<完整提交 SHA>` 后执行 `docker compose pull && docker compose up -d`。
+`deploy/compose.yaml` 仅从 GHCR 拉取镜像，通过 Nginx 将 HTTPS 转发至 `127.0.0.1:18181`，SQLite 持久化到 `/opt/wire-pairs/data`（UID/GID 1000）。在 `/opt/wire-pairs/.env` 设置 `RELEASE_TAG=v1.1.0` 后执行 `docker compose pull && docker compose up -d`。
 
 Nginx 模板、Certbot webroot 初始配置及续期 reload hook 位于 `deploy/`。首次创建管理员：
 

@@ -1,7 +1,8 @@
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
 ARG VITE_ASSET_BASE_URL
-ENV VITE_ASSET_BASE_URL=$VITE_ASSET_BASE_URL
+ARG VITE_APP_VERSION=dev
+ENV VITE_ASSET_BASE_URL=$VITE_ASSET_BASE_URL VITE_APP_VERSION=$VITE_APP_VERSION
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY index.html tsconfig.json vite.config.ts ./

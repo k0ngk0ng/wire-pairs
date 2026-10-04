@@ -6,6 +6,7 @@ import { useCloudSave } from './useCloudSave';
 import { mechanicFor, tileCount } from './engine';
 import { audio, defaultSettings, type AudioSettings } from './audio';
 import Lightning from './Lightning';
+import Version from './Version';
 import { assetUrl as asset } from './assets';
 
 const fmt = (n: number) => `${Math.floor(Math.ceil(n) / 60).toString().padStart(2, '0')}:${(Math.ceil(n) % 60).toString().padStart(2, '0')}`;
@@ -227,7 +228,7 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
             <button className="tool-button" disabled={locked || game.tools.hint === 0} onClick={() => act({ type: 'hint' })} title="提示（H）"><span className="tool-icon hint-icon"><Lightbulb size={22} /></span><span><strong>提示 <kbd>H</kbd></strong><small>发现一对好搭档</small></span><b>{game.tools.hint}</b></button>
             <button className="tool-button" disabled={locked || game.tools.shuffle === 0} onClick={() => act({ type: 'shuffle' })} title="洗牌（R）"><span className="tool-icon shuffle-icon"><Shuffle size={21} /></span><span><strong>洗牌 <kbd>R</kbd></strong><small>换个思路继续连</small></span><b>{game.tools.shuffle}</b></button>
             <button className={`tool-button ${game.hammer ? 'tool-active' : ''}`} disabled={locked || game.tools.hammer === 0} onClick={() => act({ type: 'hammer' })} title="破障（B）" aria-pressed={game.hammer}><span className="tool-icon hammer-icon"><Hammer size={21} /></span><span><strong>破障 <kbd>B</kbd></strong><small>敲开挡路小机关</small></span><b>{game.tools.hammer}</b></button>
-          </div><button className="restart-button" aria-label="重新挑战本关" onClick={() => openModal('retry')}><RotateCcw size={17} /></button></div>
+          </div><button className="restart-button" aria-label="重新挑战本关" onClick={() => openModal('retry')}><RotateCcw size={17} /></button><Version className="focus-version" /></div>
           <p className="orientation-note"><Maximize2 size={12} /> 点击全屏，放大棋盘；横竖屏都能玩</p>
         </section>
 
@@ -247,7 +248,7 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
       </div>
 
       <section className="bottom-notes"><div><span className="note-icon"><Lightbulb size={18} /></span><p><strong>连连小贴士</strong><span>连接线可以绕到棋盘外侧。换个角度，往往就有新发现。</span></p></div><button className="text-button" onClick={() => { dispatch({ type: 'pause' }); setGallery(true); }}>看看经典图鉴 <ArrowRight size={15} /></button></section>
-      <footer><span><Logo small /> 简单一点，快乐连连。</span><span className={`cloud-state ${sync.status}`} role="status">{sync.status === 'saving' ? <LoaderCircle size={14} className="spin" /> : sync.status === 'offline' || sync.status === 'error' ? <CloudOff size={14} /> : <CloudCheck size={14} />}{sync.status === 'saved' ? '进度已同步到云端' : sync.status === 'saving' ? '正在保存进度' : sync.status === 'offline' ? '离线暂存中，联网后自动同步' : sync.status === 'conflict' ? '请选择要继续的进度' : sync.error}<i />换台设备，也能接着玩</span></footer>
+      <footer><span><Logo small /> 简单一点，快乐连连。<Version /></span><span className={`cloud-state ${sync.status}`} role="status">{sync.status === 'saving' ? <LoaderCircle size={14} className="spin" /> : sync.status === 'offline' || sync.status === 'error' ? <CloudOff size={14} /> : <CloudCheck size={14} />}{sync.status === 'saved' ? '进度已同步到云端' : sync.status === 'saving' ? '正在保存进度' : sync.status === 'offline' ? '离线暂存中，联网后自动同步' : sync.status === 'conflict' ? '请选择要继续的进度' : sync.error}<i />换台设备，也能接着玩</span></footer>
     </main>
 
     {(modal || gallery) && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) { setModal(null); setGallery(false); } }}><div className={`modal ${gallery ? 'gallery-modal' : ''}`} ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="dialog-title"><button className="modal-close icon-button" aria-label="关闭" onClick={() => { setModal(null); setGallery(false); }}><X size={21} /></button>
