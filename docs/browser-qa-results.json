@@ -1,0 +1,206 @@
+{
+  "stages": [
+    {
+      "mechanic": "classic",
+      "obstacles": 0,
+      "pairs": 40,
+      "revision": 3,
+      "score": 10900,
+      "stage": 1,
+      "startCount": 80
+    },
+    {
+      "mechanic": "classic",
+      "obstacles": 0,
+      "pairs": 40,
+      "revision": 5,
+      "score": 10900,
+      "stage": 2,
+      "startCount": 80
+    },
+    {
+      "mechanic": "classic",
+      "obstacles": 0,
+      "pairs": 38,
+      "revision": 7,
+      "score": 10300,
+      "stage": 3,
+      "startCount": 76
+    },
+    {
+      "mechanic": "stone",
+      "obstacles": 4,
+      "pairs": 38,
+      "revision": 8,
+      "score": 10300,
+      "stage": 4,
+      "startCount": 76
+    },
+    {
+      "mechanic": "reward",
+      "obstacles": 0,
+      "pairs": 26,
+      "revision": 9,
+      "score": 13400,
+      "stage": 5,
+      "startCount": 52
+    },
+    {
+      "mechanic": "crate",
+      "obstacles": 4,
+      "pairs": 38,
+      "revision": 11,
+      "score": 10300,
+      "stage": 6,
+      "startCount": 76
+    },
+    {
+      "mechanic": "crate",
+      "obstacles": 4,
+      "pairs": 38,
+      "revision": 13,
+      "score": 10300,
+      "stage": 7,
+      "startCount": 76
+    },
+    {
+      "mechanic": "ice",
+      "obstacles": 4,
+      "pairs": 37,
+      "revision": 14,
+      "score": 10000,
+      "stage": 8,
+      "startCount": 74
+    },
+    {
+      "mechanic": "ice",
+      "obstacles": 4,
+      "pairs": 37,
+      "revision": 15,
+      "score": 10000,
+      "stage": 9,
+      "startCount": 74
+    },
+    {
+      "mechanic": "mixed",
+      "obstacles": 6,
+      "pairs": 37,
+      "revision": 17,
+      "score": 10000,
+      "stage": 10,
+      "startCount": 74
+    },
+    {
+      "mechanic": "classic",
+      "obstacles": 0,
+      "pairs": 37,
+      "revision": 19,
+      "score": 10000,
+      "stage": 11,
+      "startCount": 74
+    },
+    {
+      "mechanic": "stone",
+      "obstacles": 6,
+      "pairs": 47,
+      "revision": 20,
+      "score": 13000,
+      "stage": 12,
+      "startCount": 94
+    },
+    {
+      "mechanic": "crate",
+      "obstacles": 6,
+      "pairs": 47,
+      "revision": 21,
+      "score": 13000,
+      "stage": 13,
+      "startCount": 94
+    },
+    {
+      "mechanic": "ice",
+      "obstacles": 5,
+      "pairs": 47,
+      "revision": 23,
+      "score": 13000,
+      "stage": 14,
+      "startCount": 94
+    },
+    {
+      "mechanic": "reward",
+      "obstacles": 0,
+      "pairs": 26,
+      "revision": 25,
+      "score": 13400,
+      "stage": 15,
+      "startCount": 52
+    },
+    {
+      "mechanic": "classic",
+      "obstacles": 0,
+      "pairs": 46,
+      "revision": 26,
+      "score": 12700,
+      "stage": 16,
+      "startCount": 92
+    },
+    {
+      "mechanic": "mixed",
+      "obstacles": 8,
+      "pairs": 46,
+      "revision": 28,
+      "score": 12700,
+      "stage": 17,
+      "startCount": 92
+    },
+    {
+      "mechanic": "speed",
+      "obstacles": 0,
+      "pairs": 46,
+      "revision": 30,
+      "score": 12700,
+      "stage": 18,
+      "startCount": 92
+    },
+    {
+      "mechanic": "mixed",
+      "obstacles": 8,
+      "pairs": 46,
+      "revision": 32,
+      "score": 12700,
+      "stage": 19,
+      "startCount": 92
+    },
+    {
+      "mechanic": "mixed",
+      "obstacles": 8,
+      "pairs": 56,
+      "revision": 34,
+      "score": 15700,
+      "stage": 20,
+      "startCount": 112
+    }
+  ],
+  "checks": [
+    "every stage has a history record",
+    "every victory saved to SQLite",
+    "hammer works on ice",
+    "hammer works on stone",
+    "hint highlights a valid pair",
+    "pause freezes clock",
+    "shuffle preserves tiles and has move"
+  ],
+  "additionalChecks": [
+    "Administrator creates account through UI; no public registration",
+    "First-login password change",
+    "Second isolated browser restores same account progress",
+    "Conflict: load cloud and retain local paths both verified",
+    "Network failure caches local progress; recovery uploads and clears cache",
+    "Refresh restores paused board with score 220 and 108 tiles",
+    "Node service restart preserves level 21 and 20 records",
+    "Timeout overlay and retry reset clock and consumables",
+    "20 history entries rendered; ordinary user has no admin tab",
+    "390px portrait and 844px landscape have no horizontal overflow",
+    "51 gallery icons loaded; mute and reduced animation settings verified"
+  ]
+}

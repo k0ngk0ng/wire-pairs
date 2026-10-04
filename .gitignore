@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.work/
+*.tsbuildinfo
+.DS_Store
+data/
+.env
+
+.env.*
+!.env.example
+*.sqlite*
+*.db
+*.pem
+*.key
