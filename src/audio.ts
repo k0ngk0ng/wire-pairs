@@ -2,60 +2,71 @@ import { assetUrl } from './assets';
 const ASSETS = assetUrl('audio/');
 export type AudioSettings = { muted: boolean; effects: number; music: number; reduced: boolean };
 export const defaultSettings: AudioSettings = { muted: false, effects: .6, music: .15, reduced: false };
-class GameAudio {
-  private context: AudioContext | null = null;
-  private buffers = new Map<string, AudioBuffer>();
-  private pending = new Map<string, Promise<AudioBuffer | null>>();
-  private active: AudioBufferSourceNode[] = [];
-  private nativeActive: HTMLAudioElement[] = [];
-  private nativeEffects = new URL(ASSETS, location.href).origin !== location.origin;
-  private music: HTMLAudioElement | null = null;
+type Voice = { element: HTMLAudioElement; revision: number; unlocked: boolean; priming: boolean };
+const files: Record<string, string> = { select: 'sel.wav', match: 'elec.wav', won: 'end.wav', lost: 'end.wav', start: 'start.wav', break: 'itemboom.wav', shuffle: 'itemboom.wav', hint: 'sel.wav', countdown: 'sel.wav', error: 'sel.wav' };
+export class GameAudio {
+  private voices = new Map<string, Voice[]>();
+  private music: Voice | null = null;
+  private playing = false;
   settings = defaultSettings;
-  async unlock() {
-    if (this.nativeEffects) return;
-    try {
-      this.context ??= new AudioContext();
-      if (this.context.state === 'suspended') await this.context.resume();
-      for (const file of ['sel.wav', 'elec.wav', 'start.wav', 'end.wav', 'itemboom.wav']) void this.load(file);
-    } catch { /* Silent play remains available on devices without audio support. */ }
+  private create(file: string): Voice {
+    const element = new Audio(ASSETS + file);
+    element.preload = 'auto';
+    return { element, revision: 0, unlocked: false, priming: false };
   }
-  private load(file: string): Promise<AudioBuffer | null> {
-    if (this.buffers.has(file)) return Promise.resolve(this.buffers.get(file)!);
-    if (this.pending.has(file)) return this.pending.get(file)!;
-    const pending = fetch(ASSETS + file).then(r => { if (!r.ok) throw new Error('audio'); return r.arrayBuffer(); })
-      .then(data => this.context!.decodeAudioData(data)).then(buffer => { this.buffers.set(file, buffer); return buffer; }).catch(() => null);
-    this.pending.set(file, pending); return pending;
+  private prepare() {
+    if (this.music) return;
+    this.music = this.create('bg.mp3'); this.music.element.loop = true;
+    for (const [file, count] of [['sel.wav', 2], ['elec.wav', 3], ['start.wav', 1], ['end.wav', 1], ['itemboom.wav', 1]] as const)
+      this.voices.set(file, Array.from({ length: count }, () => this.create(file)));
   }
-  async play(type: string) {
-    if (this.settings.muted || !this.settings.effects) return;
-    const file = ({ select: 'sel.wav', match: 'elec.wav', won: 'end.wav', lost: 'end.wav', start: 'start.wav', break: 'itemboom.wav', shuffle: 'itemboom.wav', hint: 'sel.wav', countdown: 'sel.wav', error: 'sel.wav' } as Record<string, string>)[type];
-    if (!file) return;
-    // Ordinary media playback supports CDN resources without CORS access to samples.
-    if (this.nativeEffects) {
-      while (this.nativeActive.length >= 5) this.nativeActive.shift()!.pause();
-      const sound = new Audio(ASSETS + file);
-      sound.volume = this.settings.effects * (type === 'select' ? .65 : .8);
-      const remove = () => { this.nativeActive = this.nativeActive.filter(n => n !== sound); };
-      sound.onended = remove; sound.onerror = remove;
-      this.nativeActive.push(sound);
-      await sound.play().catch(remove);
-      return;
+  // Reuse a small, fixed pool. Mobile Safari requires each media element to be
+  // authorized by a user gesture; creating a new element for every match loses that authorization.
+  unlock() {
+    if (this.settings.muted) return;
+    this.prepare();
+    for (const voice of [this.music!, ...[...this.voices.values()].flat()]) {
+      if (voice.unlocked || voice.priming) continue;
+      if (voice.element.error) voice.element.load();
+      const revision = ++voice.revision;
+      voice.priming = true; voice.element.muted = true;
+      void voice.element.play().then(() => { voice.unlocked = true; }).catch(() => { voice.unlocked = false; }).finally(() => {
+        voice.priming = false;
+        // An actual game sound may have claimed the voice while priming was pending.
+        if (voice.revision === revision) { voice.element.pause(); voice.element.currentTime = 0; voice.element.muted = false; }
+      });
     }
-    if (!this.context) return;
-    const buffer = await this.load(file);
-    if (!buffer || !this.context || this.settings.muted) return;
-    while (this.active.length >= 5) { try { this.active.shift()!.stop(); } catch { /* Already ended. */ } }
-    const source = this.context.createBufferSource(), gain = this.context.createGain();
-    source.buffer = buffer; gain.gain.value = this.settings.effects * (type === 'select' ? .65 : .8);
-    source.connect(gain).connect(this.context.destination); this.active.push(source);
-    source.onended = () => { this.active = this.active.filter(n => n !== source); source.disconnect(); gain.disconnect(); };
-    source.start();
+    if (this.playing && this.settings.music > 0 && (this.music!.element.paused || this.music!.priming))
+      this.start(this.music!, this.settings.music, false);
+  }
+  private start(voice: Voice, volume: number, rewind: boolean) {
+    const revision = ++voice.revision;
+    voice.element.muted = false; voice.element.volume = volume;
+    if (rewind) voice.element.currentTime = 0;
+    void voice.element.play().then(() => { voice.unlocked = true; }).catch(() => {
+      if (voice.revision === revision) voice.unlocked = false; // Retry authorization on the next gesture.
+    });
+  }
+  play(type: string) {
+    if (this.settings.muted || !this.settings.effects || !files[type]) return;
+    this.prepare();
+    const pool = this.voices.get(files[type])!;
+    const voice = pool.find(v => v.element.paused && !v.priming) || pool[0];
+    pool.splice(pool.indexOf(voice), 1); pool.push(voice);
+    this.start(voice, this.settings.effects * (type === 'select' ? .65 : .8), true);
   }
   configure(settings: AudioSettings, playing: boolean) {
-    this.settings = settings;
-    if (!this.music && playing) { this.music = new Audio(ASSETS + 'bg.mp3'); this.music.loop = true; }
-    if (this.music) { this.music.volume = settings.muted ? 0 : settings.music; if (playing && !settings.muted && settings.music > 0) void this.music.play().catch(() => {}); else this.music.pause(); }
-    if (settings.muted || !playing) { for (const sound of this.nativeActive) sound.pause(); this.nativeActive = []; for (const source of this.active) { try { source.stop(); } catch { /* Already ended. */ } } this.active = []; }
+    this.settings = settings; this.playing = playing;
+    if (playing && !settings.muted) this.prepare();
+    if (this.music) {
+      this.music.element.volume = settings.music;
+      if (playing && !settings.muted && settings.music > 0) this.start(this.music, settings.music, false);
+      else { ++this.music.revision; this.music.element.pause(); }
+    }
+    for (const voice of [...this.voices.values()].flat()) {
+      if (settings.muted || !playing || !settings.effects) { ++voice.revision; voice.element.pause(); }
+      else voice.element.volume = settings.effects * .8;
+    }
   }
 }
 export const audio = new GameAudio();

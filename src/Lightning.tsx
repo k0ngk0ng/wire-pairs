@@ -4,7 +4,7 @@ import type { Point } from './engine';
 import { assetUrl } from './assets';
 
 type Bolt = { path: Point[]; birth: number; hint: boolean };
-export default function Lightning({ game, reduced }: { game: Game; reduced: boolean }) {
+export default function Lightning({ game, reduced, transposed = false }: { game: Game; reduced: boolean; transposed?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bolts = useRef<Bolt[]>([]);
   const frames = useRef<HTMLImageElement[]>([]);
@@ -23,10 +23,15 @@ export default function Lightning({ game, reduced }: { game: Game; reduced: bool
       const width = canvas.clientWidth, height = canvas.clientHeight, dpr = window.devicePixelRatio || 1;
       if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) { canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, width, height);
-      const gap = parseFloat(getComputedStyle(canvas.parentElement!).gap) || 0;
-      const cw = (width - gap * (game.level.board.cols + 1)) / (game.level.board.cols + 2);
-      const ch = (height - gap * (game.level.board.rows + 1)) / (game.level.board.rows + 2);
-      const position = (p: Point) => ({ x: (p.x + 1) * (cw + gap) + cw / 2, y: (p.y + 1) * (ch + gap) + ch / 2 });
+      const style = getComputedStyle(canvas.parentElement!);
+      const gap = parseFloat(style.gap) || 0;
+      const edge = parseFloat(style.getPropertyValue('--edge')) || 1;
+      const cols = transposed ? game.level.board.rows : game.level.board.cols;
+      const rows = transposed ? game.level.board.cols : game.level.board.rows;
+      const cw = (width - gap * (cols + 1)) / (cols + 2 * edge);
+      const ch = (height - gap * (rows + 1)) / (rows + 2 * edge);
+      const center = (index: number, count: number, cell: number, total: number) => index < 0 ? edge * cell / 2 : index >= count ? total - edge * cell / 2 : edge * cell + gap + index * (cell + gap) + cell / 2;
+      const position = (p: Point) => ({ x: center(transposed ? p.y : p.x, cols, cw, width), y: center(transposed ? p.x : p.y, rows, ch, height) });
       bolts.current = bolts.current.filter(b => now - b.birth < (b.hint ? 1300 : reduced ? 180 : 360));
       for (const bolt of bolts.current) {
         const age = now - bolt.birth, duration = bolt.hint ? 1300 : reduced ? 180 : 360;
@@ -57,6 +62,6 @@ export default function Lightning({ game, reduced }: { game: Game; reduced: bool
     };
     frame = requestAnimationFrame(render);
     return () => cancelAnimationFrame(frame);
-  }, [game.event, game.level.board.rows, game.level.board.cols, reduced]);
+  }, [game.event, game.level.board.rows, game.level.board.cols, reduced, transposed]);
   return <canvas ref={canvasRef} className="lightning-layer" aria-hidden="true" />;
 }

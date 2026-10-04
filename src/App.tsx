@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useReducer, useRef, useState, type CSSProperties } from 'react';
-import { ArrowRight, AudioLines, Check, ChevronRight, CircleHelp, Clock3, Flame, Hammer, Infinity as InfinityIcon, Leaf, Lightbulb, Maximize2, Mountain, Pause, Play, RotateCcw, Settings2, Shuffle, Snowflake, Sparkles, Star, Trophy, Volume2, VolumeX, X, Zap, Box, UserRound, CloudUpload as CloudCheck, CloudOff, LoaderCircle, LogOut } from 'lucide-react';
+import { useCallback, useEffect, useReducer, useRef, useState, type PointerEvent as ReactPointerEvent, type CSSProperties } from 'react';
+import { ArrowRight, AudioLines, Check, ChevronRight, CircleHelp, Clock3, Flame, Hammer, Infinity as InfinityIcon, Leaf, Lightbulb, Maximize2, Minimize2, Mountain, Pause, Play, RotateCcw, Settings2, Shuffle, Snowflake, Sparkles, Star, Trophy, Volume2, VolumeX, X, Zap, Box, UserRound, CloudUpload as CloudCheck, CloudOff, LoaderCircle, LogOut } from 'lucide-react';
 import { reduceGame, stars, type Action, type Game } from './game';
 import type { User, CloudSave } from './api';
 import { useCloudSave } from './useCloudSave';
@@ -36,10 +36,38 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
   const [toast, setToast] = useState('');
   const [assetFailed, setAssetFailed] = useState(false);
   const [gallery, setGallery] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [portraitPhone, setPortraitPhone] = useState(() => matchMedia('(max-width: 600px) and (orientation: portrait)').matches);
+  const nativeFullscreen = useRef(false);
+  const focusRequested = useRef(false);
+  const leaveFullscreen = useCallback(() => {
+    focusRequested.current = false;
+    setFocused(false);
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+  }, []);
+  useEffect(() => {
+    const query = matchMedia('(max-width: 600px) and (orientation: portrait)');
+    const update = () => setPortraitPhone(query.matches);
+    query.addEventListener('change', update);
+    const changed = () => {
+      if (document.fullscreenElement) nativeFullscreen.current = true;
+      else if (nativeFullscreen.current) { nativeFullscreen.current = false; leaveFullscreen(); }
+    };
+    document.addEventListener('fullscreenchange', changed);
+    return () => { query.removeEventListener('change', update); document.removeEventListener('fullscreenchange', changed); };
+  }, [leaveFullscreen]);
+  useEffect(() => {
+    if (!focused) return;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = overflow; };
+  }, [focused]);
   const modalRef = useRef<HTMLDivElement>(null);
   const conflictRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef(game); gameRef.current = game;
   const messageId = useRef(-1);
+  const touch = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null);
+  const touchEnded = useRef(0);
   const sync = useCloudSave(game, user.id, cloud, onSessionExpired);
   const act = useCallback((action: Action) => {
     void audio.unlock();
@@ -47,7 +75,34 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
       void sync.flush().then(ok => { if (ok) dispatch(action); else setToast('通关成绩还未上传，连接恢复后即可继续'); });
     } else dispatch(action);
   }, [sync.flush]);
+  const touchStart = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' || !e.isPrimary) return;
+    touch.current = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
+  };
+  const touchMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const start = touch.current;
+    if (start?.id === e.pointerId && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 12) start.moved = true;
+  };
+  const touchEnd = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const start = touch.current;
+    if (!start || start.id !== e.pointerId) return;
+    touch.current = null; touchEnded.current = Date.now();
+    if (start.moved || Math.hypot(e.clientX - start.x, e.clientY - start.y) > 12) return;
+    // Give each tile half of the gutter, without stealing taps from its neighbor.
+    const margin = (parseFloat(getComputedStyle(e.currentTarget).gap) || 0) / 2;
+    let nearest: HTMLButtonElement | null = null, distance = Infinity;
+    for (const tile of e.currentTarget.querySelectorAll<HTMLButtonElement>('button[data-cell]:not(:disabled)')) {
+      const r = tile.getBoundingClientRect();
+      if (e.clientX < r.left - margin || e.clientX > r.right + margin || e.clientY < r.top - margin || e.clientY > r.bottom + margin) continue;
+      const d = Math.hypot(e.clientX - (r.left + r.right) / 2, e.clientY - (r.top + r.bottom) / 2);
+      if (d < distance) { nearest = tile; distance = d; }
+    }
+    if (nearest) act({ type: 'tile', index: Number(nearest.dataset.cell) });
+  };
   const board = game.level.board;
+  const transposed = focused && portraitPhone;
+  const displayCols = transposed ? board.rows : board.cols;
+  const displayRows = transposed ? board.cols : board.rows;
   const remainingTiles = tileCount(board);
   const progress = game.cleared / (game.cleared + remainingTiles);
   const locked = game.status !== 'playing' && game.status !== 'ready';
@@ -78,7 +133,7 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
   useEffect(() => {
     const keyboard = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.matches('input, select, textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key === 'Escape') { setModal(null); setGallery(false); dispatch({ type: 'pause' }); return; }
+      if (e.key === 'Escape') { if (!modal && !gallery && !sync.conflict) leaveFullscreen(); setModal(null); setGallery(false); dispatch({ type: 'pause' }); return; }
       if (modal || gallery || sync.conflict || document.querySelector('.account-overlay') || e.repeat) return;
       if (e.code === 'Space' && !(e.target as HTMLElement)?.closest('button')) { e.preventDefault(); act({ type: gameRef.current.status === 'paused' ? 'resume' : gameRef.current.status === 'ready' ? 'start' : 'pause' }); }
       if (e.key.toLowerCase() === 'h') act({ type: 'hint' });
@@ -86,7 +141,7 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
       if (e.key.toLowerCase() === 'b') act({ type: 'hammer' });
     };
     window.addEventListener('keydown', keyboard); return () => window.removeEventListener('keydown', keyboard);
-  }, [act, modal, gallery, sync.conflict]);
+  }, [act, modal, gallery, sync.conflict, leaveFullscreen]);
   useEffect(() => {
     if (!modal && !gallery && !sync.conflict) return;
     const oldFocus = document.activeElement as HTMLElement;
@@ -101,11 +156,19 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
   }, [modal, gallery, sync.conflict]);
 
   const fullscreen = async () => {
-    try { if (document.fullscreenElement) await document.exitFullscreen(); else if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); else setToast('当前浏览器不支持全屏，可横屏获得更大的棋盘'); }
-    catch { setToast('暂时无法进入全屏，请使用浏览器全屏功能'); }
+    if (focused) { leaveFullscreen(); return; }
+    focusRequested.current = true;
+    setFocused(true);
+    // The focused layout also works on iPhone and browsers without the Fullscreen API.
+    try {
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+        if (!focusRequested.current && document.fullscreenElement) await document.exitFullscreen();
+      }
+    } catch { /* Keep the viewport-filling layout when native fullscreen is unavailable. */ }
   };
 
-  return <div className={`app ${settings.reduced ? 'reduce-motion' : ''}`} data-theme={game.level.mechanic}>
+  return <div className={`app ${settings.reduced ? 'reduce-motion' : ''} ${focused ? 'game-focused' : ''}`} data-theme={game.level.mechanic}>
     <header className="site-header">
       <a className="brand" href="#" aria-label="连连看首页" onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><Logo /><span>连连看<span className="brand-divider" /><small>一连就开心</small></span></a>
       <nav aria-label="游戏设置">
@@ -122,29 +185,36 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
         <div className="adventure-stamp"><InfinityIcon size={31} /><div><strong>无限闯关</strong><span>每一关，都有新发现</span></div></div>
       </section>
 
+      <button className="mobile-play-banner" onClick={fullscreen}><Maximize2 size={22} /><span><strong>全屏游玩</strong><small>放大棋盘，专心连一局</small></span><ArrowRight size={20} /></button>
       <div className="game-layout">
         <section className="game-card" aria-label="连连看游戏" data-level={game.level.number} data-status={game.status}>
           <div className="game-topbar"><div className="level-label"><span className="level-number">{String(game.level.number).padStart(2, '0')}</span><div><div className="section-overline">第 {game.level.number} 关 <span> / </span> {titles[game.level.mechanic]}</div><h2>{game.level.name}</h2></div></div>
             <div className="score-box"><span>本关得分</span><strong data-testid="score">{game.score.toLocaleString().padStart(4, '0')}</strong></div>
-            <div className="topbar-actions"><button className="icon-button" aria-label={game.status === 'paused' ? '继续游戏' : '暂停游戏'} disabled={['won', 'lost', 'ready'].includes(game.status)} onClick={() => act({ type: game.status === 'paused' ? 'resume' : 'pause' })}>{game.status === 'paused' ? <Play size={20} /> : <Pause size={20} />}</button><button className="icon-button fullscreen-button" aria-label="全屏游戏" onClick={fullscreen}><Maximize2 size={19} /></button></div>
+            <div className="topbar-actions"><button className="icon-button" aria-label={game.status === 'paused' ? '继续游戏' : '暂停游戏'} disabled={['won', 'lost', 'ready'].includes(game.status)} onClick={() => act({ type: game.status === 'paused' ? 'resume' : 'pause' })}>{game.status === 'paused' ? <Play size={20} /> : <Pause size={20} />}</button><button className="icon-button focus-settings" aria-label="游戏设置" onClick={() => openModal('settings')}><Settings2 size={19} /></button><button className="icon-button fullscreen-button" aria-label={focused ? '退出全屏游戏' : '全屏游戏'} aria-pressed={focused} onClick={fullscreen}>{focused ? <Minimize2 size={19} /> : <Maximize2 size={19} />}<span>{focused ? '退出' : '全屏'}</span></button></div>
           </div>
           <div className={`timer-row ${game.remaining <= 30 ? 'urgent' : ''}`}><Clock3 size={15} /><span className="time-label">剩余时间</span><div className="timer-track" role="progressbar" aria-label="剩余时间" aria-valuemin={0} aria-valuemax={game.level.seconds} aria-valuenow={Math.ceil(game.remaining)}><div style={{ width: `${game.remaining / game.level.seconds * 100}%` }} /></div><strong data-testid="timer">{fmt(game.remaining)}</strong></div>
 
           <div className={`board-stage ${game.hammer ? 'hammer-mode' : ''}`}>
             <div className="board-caption"><span><span className="live-dot" /> {game.status === 'ready' ? '点击图标，即刻开始' : game.status === 'paused' ? '休息一下，快乐不打烊' : titles[game.level.mechanic]}</span><span>{remainingTiles / 2} 对待消除</span></div>
-            <div className="board-grid" style={{ '--cols': board.cols + 2, '--rows': board.rows + 2 } as CSSProperties} role="group" aria-label="配对棋盘">
+            <div className="board-fit">
+            <div className="board-grid" data-cols={board.cols} data-rows={board.rows} data-transposed={transposed} style={{ '--cols': displayCols + 2, '--rows': displayRows + 2, '--tile-cols': displayCols, '--tile-rows': displayRows, '--fit-cols': displayCols + .9, '--fit-rows': displayRows + .9 } as CSSProperties}
+              onPointerDown={touchStart} onPointerMove={touchMove} onPointerUp={touchEnd}
+              onPointerCancel={() => { touch.current = null; touchEnded.current = Date.now(); }}
+              onClickCapture={e => { if (e.detail !== 0 && Date.now() - touchEnded.current < 700) { e.preventDefault(); e.stopPropagation(); } }} role="group" aria-label="配对棋盘">
               {board.cells.map((cell, i) => {
-                const pos = { gridColumn: i % board.cols + 2, gridRow: Math.floor(i / board.cols) + 2 };
+                const x = i % board.cols, y = Math.floor(i / board.cols);
+                const pos = { gridColumn: (transposed ? y : x) + 2, gridRow: (transposed ? x : y) + 2 };
                 if (!cell) return <span className="empty-cell" key={i} style={pos} />;
                 const isTile = cell.kind === 'tile';
                 return <button key={i} style={pos} data-cell={i} data-icon={isTile ? cell.icon : ''} data-kind={cell.kind} data-ice={isTile && cell.ice ? 'true' : undefined}
                   className={`tile ${cell.kind} ${isTile && cell.ice ? 'ice' : ''} ${game.selected === i ? 'selected' : ''} ${game.hintLeft > 0 && game.hint.includes(i) ? 'hinted' : ''}`}
-                  aria-label={isTile ? `${cell.ice ? '冰封' : ''}图案 ${cell.icon}，第 ${Math.floor(i / board.cols) + 1} 行第 ${i % board.cols + 1} 列` : `${cell.kind === 'stone' ? '石块' : '木箱'}，第 ${Math.floor(i / board.cols) + 1} 行第 ${i % board.cols + 1} 列`}
+                  aria-label={isTile ? `${cell.ice ? '冰封' : ''}图案 ${cell.icon}，第 ${(transposed ? x : y) + 1} 行第 ${(transposed ? y : x) + 1} 列` : `${cell.kind === 'stone' ? '石块' : '木箱'}，第 ${(transposed ? x : y) + 1} 行第 ${(transposed ? y : x) + 1} 列`}
                   aria-pressed={game.selected === i} disabled={locked || assetFailed} onClick={() => act({ type: 'tile', index: i })}>
                   {isTile ? <><img src={asset(`icons/${cell.icon}.png`)} alt="" draggable="false" onError={() => setAssetFailed(true)} />{cell.ice && <Snowflake className="ice-symbol" size={13} />}</> : cell.kind === 'stone' ? <Mountain size={29} strokeWidth={1.6} /> : <span className="wood-grain"><i /><i /></span>}
                 </button>;
               })}
-              <Lightning game={game} reduced={settings.reduced} />
+              <Lightning game={game} reduced={settings.reduced} transposed={transposed} />
+            </div>
             </div>
             <div className="board-bottom"><span><Zap size={14} /> 两次转弯之内，快乐即刻连通</span><div className={`combo-chip ${game.combo > 1 && game.comboLeft > 0 ? 'active' : ''}`}><Flame size={15} /><span>{game.combo > 1 && game.comboLeft > 0 ? `${game.combo} 连击` : '连击蓄力中'}</span></div></div>
             {game.status === 'paused' && !modal && !gallery && <div className="board-overlay"><div className="pause-medallion"><Pause size={30} /></div><h3>让快乐歇一会儿</h3><p>时间已暂停，进度好好保留着。</p><button className="primary-button" onClick={() => act({ type: 'resume' })}><Play size={17} fill="currentColor" /> 继续游戏</button><button className="text-button light" onClick={() => openModal('retry')}>重新挑战本关</button></div>}
@@ -158,7 +228,7 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
             <button className="tool-button" disabled={locked || game.tools.shuffle === 0} onClick={() => act({ type: 'shuffle' })} title="洗牌（R）"><span className="tool-icon shuffle-icon"><Shuffle size={21} /></span><span><strong>洗牌 <kbd>R</kbd></strong><small>换个思路继续连</small></span><b>{game.tools.shuffle}</b></button>
             <button className={`tool-button ${game.hammer ? 'tool-active' : ''}`} disabled={locked || game.tools.hammer === 0} onClick={() => act({ type: 'hammer' })} title="破障（B）" aria-pressed={game.hammer}><span className="tool-icon hammer-icon"><Hammer size={21} /></span><span><strong>破障 <kbd>B</kbd></strong><small>敲开挡路小机关</small></span><b>{game.tools.hammer}</b></button>
           </div><button className="restart-button" aria-label="重新挑战本关" onClick={() => openModal('retry')}><RotateCcw size={17} /></button></div>
-          <p className="orientation-note"><Maximize2 size={12} /> 横屏玩，图标更大，更好点选</p>
+          <p className="orientation-note"><Maximize2 size={12} /> 点击全屏，放大棋盘；横竖屏都能玩</p>
         </section>
 
         <aside className="sidebar">

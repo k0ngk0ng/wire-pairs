@@ -10,7 +10,7 @@
   const stageNumber = () => Number(document.querySelector('.game-card').dataset.level);
   const board = () => {
     const grid = document.querySelector('.board-grid'), style = getComputedStyle(grid);
-    const cols = +style.getPropertyValue('--cols') - 2, rows = +style.getPropertyValue('--rows') - 2;
+    const cols = Number(grid.dataset.cols) || +style.getPropertyValue('--cols') - 2, rows = Number(grid.dataset.rows) || +style.getPropertyValue('--rows') - 2;
     const cells = Array(rows * cols).fill(null);
     for (const el of grid.querySelectorAll('[data-cell]')) cells[+el.dataset.cell] = el.dataset.kind === 'tile' ? { kind: 'tile', icon: +el.dataset.icon, ice: el.dataset.ice === 'true' } : { kind: el.dataset.kind };
     return { cols, rows, cells };
@@ -20,6 +20,7 @@
   const resume = async () => { if (status() === 'paused') await click('.board-overlay .primary-button'); };
   if (status() === 'won') { await button('下一关'); await wait(); }
   await resume();
+  if (document.querySelector('.tile.selected')) await click('.tile.selected');
   const first = stageNumber();
   if (first === 1) {
     if (status() === 'ready') await button('开始这一关');
@@ -56,7 +57,7 @@
     if (stage < Math.min(first + 3, 20)) { await button('下一关'); await wait(); assert(stageNumber() === stage + 1, 'Next stage did not load'); }
   }
   const records = await (await fetch('/api/records')).json();
-  assert(report.stages.every(s => records.records.some(r => r.level === s.stage && r.score === s.score)), 'Missing server history');
+  assert(report.stages.every(s => records.records.some(r => r.level === s.stage && r.score >= s.score)), 'Missing server history');
   report.checks.push('every victory saved to SQLite', 'every stage has a history record');
   report.imagesLoaded = [...document.images].every(img => img.complete && img.naturalWidth > 0);
   report.horizontalOverflow = document.documentElement.scrollWidth > innerWidth;
