@@ -122,7 +122,8 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
   }, []);
   useEffect(() => { audio.preload(); }, []);
   useLayoutEffect(() => {
-    audio.configure(settings, game.status === 'playing');
+    // Keep the audio session alive across the final lightning and result sound.
+    audio.configure(settings, game.status === 'playing', game.status === 'won' || game.status === 'lost');
     try { localStorage.setItem('wire-pairs.settings', JSON.stringify(settings)); } catch { /* Settings remain usable without local storage. */ }
   }, [settings, game.status]);
   useEffect(() => { if (sync.conflict || sync.status === 'error') dispatch({ type: 'pause' }); }, [sync.conflict, sync.status]);

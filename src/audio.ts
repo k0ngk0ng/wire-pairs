@@ -29,7 +29,7 @@ export class GameAudio {
     if (this.settings.muted) return;
     this.prepare();
     this.effects.unlock();
-    for (const voice of [this.music!, ...(this.effects.ready ? [] : [...this.voices.values()].flat())]) {
+    for (const voice of [this.music!, ...[...this.voices.values()].flat()]) {
       if (voice.unlocked || voice.priming) continue;
       if (voice.element.error) voice.element.load();
       const revision = ++voice.revision;
@@ -43,35 +43,48 @@ export class GameAudio {
     if (this.playing && this.settings.music > 0 && (this.music!.element.paused || this.music!.priming))
       this.start(this.music!, this.settings.music, false);
   }
-  private start(voice: Voice, volume: number, rewind: boolean) {
+  private start(voice: Voice, volume: number, rewind: boolean, onEnded?: () => void) {
     const revision = ++voice.revision;
+    voice.element.onended = () => { if (voice.revision === revision) onEnded?.(); };
     voice.element.muted = false; voice.element.volume = volume;
     if (rewind) voice.element.currentTime = 0;
     void voice.element.play().then(() => { voice.unlocked = true; }).catch(() => {
-      if (voice.revision === revision) voice.unlocked = false; // Retry authorization on the next gesture.
+      if (voice.revision === revision) {
+        voice.unlocked = false; // Retry authorization on the next gesture.
+        onEnded?.();
+      }
     });
   }
-  play(type: string) {
-    if (this.settings.muted || !this.settings.effects || !files[type]) return;
-    for (const voice of [...this.voices.values()].flat()) { ++voice.revision; voice.element.pause(); }
-    if (this.effects.play(files[type], this.settings.effects * (type === 'select' ? .65 : .8))) return;
-    this.prepare();
-    const pool = this.voices.get(files[type])!;
-    const voice = pool.find(v => v.element.paused && !v.priming) || pool[0];
-    pool.splice(pool.indexOf(voice), 1); pool.push(voice);
-    this.start(voice, this.settings.effects * (type === 'select' ? .65 : .8), true);
+  private pauseMusic() {
+    if (this.music) { ++this.music.revision; this.music.element.pause(); }
   }
-  configure(settings: AudioSettings, playing: boolean) {
+  play(type: string) {
+    if (this.settings.muted || !this.settings.effects || !files[type]) {
+      if (type === 'won' || type === 'lost') this.pauseMusic();
+      return;
+    }
+    for (const voice of [...this.voices.values()].flat()) { ++voice.revision; voice.element.pause(); }
+    const volume = this.settings.effects * (type === 'select' ? .65 : .8);
+    const onEnded = type === 'won' || type === 'lost' ? () => { if (!this.playing) this.pauseMusic(); } : undefined;
+    const fallback = () => {
+      this.prepare();
+      const voice = this.voices.get(files[type])![0];
+      this.start(voice, volume, true, onEnded);
+    };
+    if (!this.effects.play(files[type], volume, onEnded, fallback)) fallback();
+  }
+  configure(settings: AudioSettings, playing: boolean, finishing = false) {
     this.settings = settings; this.playing = playing;
-    if (settings.muted || !playing || !settings.effects) this.effects.stop();
+    const stopEffects = settings.muted || (!playing && !finishing) || !settings.effects;
+    if (stopEffects) this.effects.stop();
     if (playing && !settings.muted) this.prepare();
     if (this.music) {
       this.music.element.volume = settings.music;
       if (playing && !settings.muted && settings.music > 0) this.start(this.music, settings.music, false);
-      else { ++this.music.revision; this.music.element.pause(); }
+      else if (!finishing || settings.muted || !settings.effects || !settings.music) this.pauseMusic();
     }
     for (const voice of [...this.voices.values()].flat()) {
-      if (settings.muted || !playing || !settings.effects) { ++voice.revision; voice.element.pause(); }
+      if (stopEffects) { ++voice.revision; voice.element.pause(); }
       else voice.element.volume = settings.effects * .8;
     }
   }

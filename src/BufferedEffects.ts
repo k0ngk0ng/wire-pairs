@@ -5,6 +5,7 @@ export class BufferedEffects {
   private active = new Set<AudioBufferSourceNode>();
   private loading: Promise<void> | null = null;
   private retryAt = 0;
+  private revision = 0;
   get ready() { return this.buffers.size === 5 && this.context?.state === 'running'; }
   preload() {
     if (this.loading || this.buffers.size === 5 || Date.now() < this.retryAt) return this.loading;
@@ -27,17 +28,41 @@ export class BufferedEffects {
     // Safari can interrupt an existing context after an app switch or phone call.
     if (this.context && this.context.state !== 'running' && this.context.state !== 'closed') void this.context.resume().catch(() => {});
   }
-  play(file: string, volume: number) {
+  play(file: string, volume: number, onEnded?: () => void, onUnavailable?: () => void) {
     this.stop();
+    const revision = this.revision;
     const buffer = this.buffers.get(file), context = this.context;
-    if (!buffer || !context || context.state !== 'running') return false;
-    const source = context.createBufferSource(), gain = context.createGain();
-    source.buffer = buffer; gain.gain.value = volume;
-    source.connect(gain).connect(context.destination);
-    this.active.add(source);
-    source.onended = () => { this.active.delete(source); source.disconnect(); gain.disconnect(); };
-    source.start(); // Already decoded: no media seek, download or async play queue.
+    if (!buffer || !context || context.state === 'closed') return false;
+    const start = () => {
+      if (revision !== this.revision) return;
+      const source = context.createBufferSource(), gain = context.createGain();
+      source.buffer = buffer; gain.gain.value = volume;
+      source.connect(gain).connect(context.destination);
+      this.active.add(source);
+      source.onended = () => {
+        this.active.delete(source); source.disconnect(); gain.disconnect();
+        if (revision === this.revision) onEnded?.();
+      };
+      source.start(); // The normal path remains synchronous and predecoded.
+    };
+    if (context.state === 'running') start();
+    else {
+      // A result can arrive after the last gesture, while iOS is changing audio
+      // state. Recover that same context without replaying obsolete effects.
+      let settled = false;
+      const fail = () => {
+        if (settled) return;
+        settled = true; clearTimeout(timeout);
+        if (revision === this.revision) onUnavailable?.();
+      };
+      const timeout = setTimeout(fail, 500);
+      void context.resume().then(() => {
+        if (settled) return;
+        if (context.state !== 'running') { fail(); return; }
+        settled = true; clearTimeout(timeout); start();
+      }).catch(fail);
+    }
     return true;
   }
-  stop() { for (const source of this.active) source.stop(); this.active.clear(); }
+  stop() { ++this.revision; for (const source of this.active) source.stop(); this.active.clear(); }
 }

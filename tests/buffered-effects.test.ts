@@ -12,7 +12,7 @@ class Context {
   createGain() { return { gain:{value:1},connect:vi.fn(),disconnect:vi.fn() }; }
   createBufferSource() { const s={start:vi.fn(),stop:vi.fn(),connect:vi.fn(() => ({ connect:vi.fn() })),disconnect:vi.fn()}; this.sources.push(s);return s; }
 }
-afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
+afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); vi.useRealTimers(); });
 describe('predecoded, latest-only effects', () => {
   it('decodes once, starts synchronously, and replaces every prior sound', async () => {
     vi.stubGlobal('AudioContext',Context); const audio=new BufferedEffects();
@@ -33,4 +33,37 @@ describe('predecoded, latest-only effects', () => {
     Context.instance.state='interrupted'; audio.unlock(); expect(Context.instance.state).toBe('running');
     expect(audio.play('elec.wav',.6)).toBe(true);
   });
+  it('recovers a delayed victory without another gesture and reports natural completion', async () => {
+    vi.stubGlobal('AudioContext', Context); const audio = new BufferedEffects();
+    await audio.preload(); const context = Context.instance;
+    context.state = 'interrupted'; const ended = vi.fn(), fallback = vi.fn();
+    expect(audio.play('end.wav', .6, ended, fallback)).toBe(true);
+    await Promise.resolve();
+    expect(context.sources).toHaveLength(1); expect(context.resume).toHaveBeenCalledTimes(1);
+    context.sources[0].onended!(); expect(ended).toHaveBeenCalledOnce();
+    expect(fallback).not.toHaveBeenCalled();
+  });
+  it('falls back on rejected or stalled resume, without replaying replaced sounds', async () => {
+    vi.useFakeTimers(); vi.stubGlobal('AudioContext', Context); const audio = new BufferedEffects();
+    await audio.preload(); const context = Context.instance;
+    context.resume.mockRejectedValueOnce(new Error('interrupted'));
+    const fallback = vi.fn(); audio.play('end.wav', .6, undefined, fallback);
+    await Promise.resolve(); await Promise.resolve(); expect(fallback).toHaveBeenCalledOnce();
+    let resume!: () => void;
+    context.resume.mockImplementation(() => new Promise<void>(resolve => { resume = resolve; }));
+    fallback.mockClear(); audio.play('end.wav', .6, undefined, fallback);
+    await vi.advanceTimersByTimeAsync(500); expect(fallback).toHaveBeenCalledOnce();
+    context.state = 'running'; resume(); await Promise.resolve(); expect(context.sources).toHaveLength(0);
+    context.state = 'interrupted'; fallback.mockClear();
+    audio.play('end.wav', .6, undefined, fallback); audio.stop();
+    await vi.advanceTimersByTimeAsync(500); expect(fallback).not.toHaveBeenCalled();
+    context.state = 'running'; resume(); await Promise.resolve(); expect(context.sources).toHaveLength(0);
+  });
+  it('does not let a replaced victory stop the next level music', async () => {
+    vi.stubGlobal('AudioContext', Context); const audio = new BufferedEffects();
+    await audio.preload(); audio.unlock(); const ended = vi.fn();
+    audio.play('end.wav', .6, ended); const victory = Context.instance.sources[0];
+    audio.play('start.wav', .6); victory.onended!(); expect(ended).not.toHaveBeenCalled();
+  });
+
 });
