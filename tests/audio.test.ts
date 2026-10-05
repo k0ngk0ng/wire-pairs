@@ -23,9 +23,21 @@ describe('mobile audio lifecycle', () => {
       for (let pair = 0; pair < 50; pair++) { audio.play('select'); audio.play('match'); }
       audio.configure(defaultSettings, false); audio.play('won'); await settle();
     }
-    expect(Media.all).toHaveLength(9);
+    expect(Media.all).toHaveLength(6);
     expect(Media.all.filter(v => v.src.endsWith('elec.wav')).reduce((n, v) => n + v.play.mock.calls.length, 0)).toBeGreaterThanOrEqual(250);
     audio.configure(defaultSettings, true); await settle();
+    expect(Media.all.find(v => v.loop)!.paused).toBe(false);
+  });
+  it('replaces an unfinished effect without interrupting background music', async () => {
+    vi.stubGlobal('Audio', Media); const audio = new GameAudio();
+    audio.unlock(); audio.configure(defaultSettings, true); await settle();
+    audio.play('match'); const match = Media.all.find(v => v.src.endsWith('elec.wav'))!;
+    expect(match.paused).toBe(false);
+    audio.play('select'); expect(match.paused).toBe(true);
+    const select = Media.all.find(v => v.src.endsWith('sel.wav'))!;
+    expect(select.paused).toBe(false);
+    select.currentTime = .03; audio.play('select'); expect(select.currentTime).toBe(0);
+    expect(Media.all.filter(v => !v.loop && !v.paused)).toHaveLength(1);
     expect(Media.all.find(v => v.loop)!.paused).toBe(false);
   });
   it('recovers rejected background playback on the next user gesture', async () => {

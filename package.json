@@ -1,6 +1,6 @@
 {
   "name": "wire-pairs",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,7 +12,7 @@
     "db:backup": "node server/backup.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "vitest run tests/engine.test.ts tests/game.test.ts tests/audio.test.ts && node --test tests/server.test.mjs"
+    "test": "vitest run tests/engine.test.ts tests/game.test.ts tests/audio.test.ts tests/buffered-effects.test.ts && node --test tests/server.test.mjs"
   },
   "engines": {
     "node": ">=24.0.0"

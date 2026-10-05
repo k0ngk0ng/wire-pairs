@@ -1,10 +1,13 @@
 import { assetUrl } from './assets';
+import { BufferedEffects } from './BufferedEffects';
 const ASSETS = assetUrl('audio/');
 export type AudioSettings = { muted: boolean; effects: number; music: number; reduced: boolean };
 export const defaultSettings: AudioSettings = { muted: false, effects: .6, music: .15, reduced: false };
 type Voice = { element: HTMLAudioElement; revision: number; unlocked: boolean; priming: boolean };
 const files: Record<string, string> = { select: 'sel.wav', match: 'elec.wav', won: 'end.wav', lost: 'end.wav', start: 'start.wav', break: 'itemboom.wav', shuffle: 'itemboom.wav', hint: 'sel.wav', countdown: 'sel.wav', error: 'sel.wav' };
 export class GameAudio {
+  private effects = new BufferedEffects();
+  preload() { void this.effects.preload(); }
   private voices = new Map<string, Voice[]>();
   private music: Voice | null = null;
   private playing = false;
@@ -17,7 +20,7 @@ export class GameAudio {
   private prepare() {
     if (this.music) return;
     this.music = this.create('bg.mp3'); this.music.element.loop = true;
-    for (const [file, count] of [['sel.wav', 2], ['elec.wav', 3], ['start.wav', 1], ['end.wav', 1], ['itemboom.wav', 1]] as const)
+    for (const [file, count] of [['sel.wav', 1], ['elec.wav', 1], ['start.wav', 1], ['end.wav', 1], ['itemboom.wav', 1]] as const)
       this.voices.set(file, Array.from({ length: count }, () => this.create(file)));
   }
   // Reuse a small, fixed pool. Mobile Safari requires each media element to be
@@ -25,7 +28,8 @@ export class GameAudio {
   unlock() {
     if (this.settings.muted) return;
     this.prepare();
-    for (const voice of [this.music!, ...[...this.voices.values()].flat()]) {
+    this.effects.unlock();
+    for (const voice of [this.music!, ...(this.effects.ready ? [] : [...this.voices.values()].flat())]) {
       if (voice.unlocked || voice.priming) continue;
       if (voice.element.error) voice.element.load();
       const revision = ++voice.revision;
@@ -49,6 +53,8 @@ export class GameAudio {
   }
   play(type: string) {
     if (this.settings.muted || !this.settings.effects || !files[type]) return;
+    for (const voice of [...this.voices.values()].flat()) { ++voice.revision; voice.element.pause(); }
+    if (this.effects.play(files[type], this.settings.effects * (type === 'select' ? .65 : .8))) return;
     this.prepare();
     const pool = this.voices.get(files[type])!;
     const voice = pool.find(v => v.element.paused && !v.priming) || pool[0];
@@ -57,6 +63,7 @@ export class GameAudio {
   }
   configure(settings: AudioSettings, playing: boolean) {
     this.settings = settings; this.playing = playing;
+    if (settings.muted || !playing || !settings.effects) this.effects.stop();
     if (playing && !settings.muted) this.prepare();
     if (this.music) {
       this.music.element.volume = settings.music;

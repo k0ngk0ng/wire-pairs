@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState, type PointerEvent as ReactPointerEvent, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type PointerEvent as ReactPointerEvent, type CSSProperties } from 'react';
 import { ArrowRight, AudioLines, Check, ChevronRight, CircleHelp, Clock3, Flame, Hammer, Infinity as InfinityIcon, Leaf, Lightbulb, Maximize2, Minimize2, Mountain, Pause, Play, RotateCcw, Settings2, Shuffle, Snowflake, Sparkles, Star, Trophy, Volume2, VolumeX, X, Zap, Box, UserRound, CloudUpload as CloudCheck, CloudOff, LoaderCircle, LogOut } from 'lucide-react';
 import { reduceGame, stars, type Action, type Game } from './game';
 import type { User, CloudSave } from './api';
@@ -35,6 +35,8 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
   const [settings, setSettings] = useState(loadSettings);
   const [modal, setModal] = useState<'help' | 'settings' | 'new' | 'retry' | null>(null);
   const [toast, setToast] = useState('');
+  const [finishedEvent, setFinishedEvent] = useState<Game['event'] | null>(null);
+  const finishAnimation = useCallback((event: Game['event']) => setFinishedEvent(event), []);
   const [assetFailed, setAssetFailed] = useState(false);
   const [gallery, setGallery] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -106,6 +108,7 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
   const displayRows = transposed ? board.cols : board.rows;
   const remainingTiles = tileCount(board);
   const progress = game.cleared / (game.cleared + remainingTiles);
+  const resultReady = game.status === 'lost' || (game.status === 'won' && (!game.event.path || finishedEvent === game.event));
   const locked = game.status !== 'playing' && game.status !== 'ready';
 
   useEffect(() => {
@@ -116,16 +119,17 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
     window.addEventListener('blur', pause); document.addEventListener('visibilitychange', visibility);
     return () => { clearInterval(timer); window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility); };
   }, []);
-  useEffect(() => {
+  useEffect(() => { audio.preload(); }, []);
+  useLayoutEffect(() => {
     audio.configure(settings, game.status === 'playing');
     try { localStorage.setItem('wire-pairs.settings', JSON.stringify(settings)); } catch { /* Settings remain usable without local storage. */ }
   }, [settings, game.status]);
   useEffect(() => { if (sync.conflict || sync.status === 'error') dispatch({ type: 'pause' }); }, [sync.conflict, sync.status]);
   useEffect(() => () => audio.configure(settings, false), []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (messageId.current === game.event.id) return;
     messageId.current = game.event.id;
-    void audio.play(game.event.type);
+    void audio.play(game.event.type === 'won' && game.event.path ? 'match' : game.event.type);
     if (game.event.text) setToast(game.event.text);
   }, [game.event]);
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(''), 3200); return () => clearTimeout(timer); }, [toast]);
@@ -214,12 +218,12 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
                   {isTile ? <><img src={asset(`icons/${cell.icon}.png`)} alt="" draggable="false" onError={() => setAssetFailed(true)} />{cell.ice && <Snowflake className="ice-symbol" size={13} />}</> : cell.kind === 'stone' ? <Mountain size={29} strokeWidth={1.6} /> : <span className="wood-grain"><i /><i /></span>}
                 </button>;
               })}
-              <Lightning game={game} reduced={settings.reduced} transposed={transposed} />
+              <Lightning game={game} reduced={settings.reduced} transposed={transposed} onComplete={finishAnimation} />
             </div>
             </div>
             <div className="board-bottom"><span><Zap size={14} /> 两次转弯之内，快乐即刻连通</span><div className={`combo-chip ${game.combo > 1 && game.comboLeft > 0 ? 'active' : ''}`}><Flame size={15} /><span>{game.combo > 1 && game.comboLeft > 0 ? `${game.combo} 连击` : '连击蓄力中'}</span></div></div>
             {game.status === 'paused' && !modal && !gallery && <div className="board-overlay"><div className="pause-medallion"><Pause size={30} /></div><h3>让快乐歇一会儿</h3><p>时间已暂停，进度好好保留着。</p><button className="primary-button" onClick={() => act({ type: 'resume' })}><Play size={17} fill="currentColor" /> 继续游戏</button><button className="text-button light" onClick={() => openModal('retry')}>重新挑战本关</button></div>}
-            {(game.status === 'won' || game.status === 'lost') && <div className="board-overlay result-overlay"><div className="result-symbol">{game.status === 'won' ? <Trophy size={37} /> : <Clock3 size={37} />}</div><div className="eyebrow light">{game.status === 'won' ? 'A LITTLE WIN, A LOT OF JOY' : 'TAKE A BREATH & TRY AGAIN'}</div><h3>{game.status === 'won' ? '漂亮！又闯过一关' : '差一点，下次一定'}</h3>{game.status === 'won' ? <><div className="result-stars">{[1, 2, 3].map(n => <Star key={n} size={32} fill={n <= stars(game) ? 'currentColor' : 'transparent'} className={n <= stars(game) ? '' : 'unearned'} />)}</div><p>得分 {game.score.toLocaleString()} · 剩余 {fmt(game.remaining)} · 最高 {game.maxCombo} 连击</p><button className="primary-button" onClick={() => act({ type: 'next' })}>下一关 · {titles[mechanicFor(game.level.number + 1)]} <ArrowRight size={18} /></button></> : <><p>本关已完成 {Math.round(progress * 100)}%，换个思路再试试。</p><button className="primary-button" onClick={() => act({ type: 'retry' })}><RotateCcw size={17} /> 免费再试一次</button></>}<button className="text-button light" onClick={() => openModal('new')}>开启新的旅程</button></div>}
+            {resultReady && <div className="board-overlay result-overlay"><div className="result-symbol">{game.status === 'won' ? <Trophy size={37} /> : <Clock3 size={37} />}</div><div className="eyebrow light">{game.status === 'won' ? 'A LITTLE WIN, A LOT OF JOY' : 'TAKE A BREATH & TRY AGAIN'}</div><h3>{game.status === 'won' ? '漂亮！又闯过一关' : '差一点，下次一定'}</h3>{game.status === 'won' ? <><div className="result-stars">{[1, 2, 3].map(n => <Star key={n} size={32} fill={n <= stars(game) ? 'currentColor' : 'transparent'} className={n <= stars(game) ? '' : 'unearned'} />)}</div><p>得分 {game.score.toLocaleString()} · 剩余 {fmt(game.remaining)} · 最高 {game.maxCombo} 连击</p><button className="primary-button" onClick={() => act({ type: 'next' })}>下一关 · {titles[mechanicFor(game.level.number + 1)]} <ArrowRight size={18} /></button></> : <><p>本关已完成 {Math.round(progress * 100)}%，换个思路再试试。</p><button className="primary-button" onClick={() => act({ type: 'retry' })}><RotateCcw size={17} /> 免费再试一次</button></>}<button className="text-button light" onClick={() => openModal('new')}>开启新的旅程</button></div>}
             {assetFailed && <div className="board-overlay"><h3>图标暂时没有加载完成</h3><p>请刷新页面重试，当前进度已保存。</p><button className="primary-button" onClick={() => location.reload()}>重新加载</button></div>}
             {toast && <div className="toast" role="status"><Sparkles size={16} />{toast}</div>}
           </div>

@@ -4,7 +4,7 @@ import type { Point } from './engine';
 import { assetUrl } from './assets';
 
 type Bolt = { path: Point[]; birth: number; hint: boolean };
-export default function Lightning({ game, reduced, transposed = false }: { game: Game; reduced: boolean; transposed?: boolean }) {
+export default function Lightning({ game, reduced, transposed = false, onComplete }: { game: Game; reduced: boolean; transposed?: boolean; onComplete?: (event: Game['event']) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bolts = useRef<Bolt[]>([]);
   const frames = useRef<HTMLImageElement[]>([]);
@@ -59,9 +59,10 @@ export default function Lightning({ game, reduced, transposed = false }: { game:
       }
       ctx.globalAlpha = 1;
       if (bolts.current.length) frame = requestAnimationFrame(render);
+      else if (game.status === 'won') onComplete?.(game.event);
     };
     frame = requestAnimationFrame(render);
     return () => cancelAnimationFrame(frame);
-  }, [game.event, game.level.board.rows, game.level.board.cols, reduced, transposed]);
+  }, [game.event, game.level.board.rows, game.level.board.cols, reduced, transposed, game.status, onComplete]);
   return <canvas ref={canvasRef} className="lightning-layer" aria-hidden="true" />;
 }

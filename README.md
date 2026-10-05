@@ -37,7 +37,7 @@ npm run admin:create -- --username admin --reset-password
 - 关卡生成保留并验证完整消除序列；走入死局时免费调整棋盘。
 - 重试、暂停、切换窗口自动暂停、键盘快捷键、声音设置、轻柔动画和移动端布局。
 - 手机可一键全屏游玩；竖屏自动调整棋盘朝向，横屏把道具移至侧边。支持安全区和不提供原生全屏的浏览器。
-- 触屏按松手位置选块，图块间隙响应最近图块，滑动与兼容点击不会重复选中。音效播放器固定数量复用，切换关卡无需重新创建。
+- 触屏按松手位置选块，图块间隙响应最近图块，滑动与兼容点击不会重复选中。短音效提前解码到内存，快速操作时仅播放最新一段音效；背景音乐独立循环。最后一对闪电播放完成后才出现结算。
 - 每关均可继续下一关，不以星级限制进度。重力玩法留作后续扩展。
 
 快捷键：空格暂停/继续，`H` 提示，`R` 洗牌，`B` 破障，`Esc` 暂停/关闭弹窗。
@@ -110,7 +110,7 @@ npm run build
 - 账号权限、首次改密、密码重置、会话撤销、数据隔离、版本冲突、历史去重、SQLite 持久化及请求校验。
 - 浏览器检查登录/账号管理、实际棋盘点击、闪电、20 关推进与云端成绩、响应式布局和刷新恢复。可复跑的浏览器检查脚本位于 `scripts/browser-qa.js`，须使用专门的测试账号；每次执行最多四关。
 
-本次验证的具体关卡与检查结果见 [浏览器验证记录](docs/browser-qa-results.json)。26 项自动测试和生产构建均通过；实际玩家对难度节奏的感受还需要试玩反馈。GitHub Actions 运行测试并构建发布 GHCR 镜像。
+本次验证的具体关卡与检查结果见 [浏览器验证记录](docs/browser-qa-results.json)。29 项自动测试和生产构建均通过；实际玩家对难度节奏的感受还需要试玩反馈。GitHub Actions 运行测试并构建发布 GHCR 镜像。
 
 素材来源见 [ASSETS.md](ASSETS.md)，原始设计与后续调整见 [DESIGN.md](DESIGN.md)。
 
@@ -127,4 +127,6 @@ cd /opt/wire-pairs
 docker compose exec app npm run admin:create -- --username admin
 ```
 
-构建时 `VITE_ASSET_BASE_URL=https://cdn.ichenj.com/llk/` 指定图片和音频根路径。`scripts/oss-assets.py` 从本地忽略目录 `.work/secrets` 读取 OSS 凭据并上传 `public/assets`；密钥不进入客户端、镜像、Git 或 Actions。音效使用可复用的原生媒体播放器，闪电纹理只用于绘制，不读取跨域画布像素。
+构建时 `VITE_ASSET_BASE_URL=https://cdn.ichenj.com/llk/` 指定图片和音频根路径。`scripts/oss-assets.py` 从本地忽略目录 `.work/secrets` 读取 OSS 凭据并上传 `public/assets`；密钥不进入客户端、镜像、Git 或 Actions。短音效通过 CDN 上带内容哈希的 `audio/effects-*.js` 资源包一次加载，Web Audio 提前解码并以交互低延迟模式播放；不支持时回退到可复用媒体播放器。背景音乐仍为一首 `bg.mp3` 循环播放。闪电纹理只用于绘制，不读取跨域画布像素。
+
+修改原始短音效后运行 `node scripts/build-audio-bank.mjs`，提交生成的资源包和路径模块，再上传新增资源到 OSS。资源包使用经典 script 传输，兼容共享 CDN 的既有跨域头，无需改动其他站点配置。

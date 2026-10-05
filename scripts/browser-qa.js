@@ -48,6 +48,8 @@
       await click(`[data-cell="${pair[0]}"]`); await click(`[data-cell="${pair[1]}"]`); pairs++;
       assert(pairs <= 70, 'Non-terminating stage');
     }
+    const resultDeadline = Date.now() + 2000;
+    while (!document.querySelector('.result-overlay') && Date.now() < resultDeadline) await wait();
     assert(document.querySelector('.result-overlay')?.textContent.includes('又闯过一关'), 'Missing result UI');
     assert(!document.querySelector('.tile[data-kind="tile"]'), 'Tiles remain after victory');
     const deadline = Date.now() + 3000; let remote;
