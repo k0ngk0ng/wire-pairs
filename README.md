@@ -37,7 +37,7 @@ npm run admin:create -- --username admin --reset-password
 - 关卡生成保留并验证完整消除序列；走入死局时免费调整棋盘。
 - 重试、暂停、切换窗口自动暂停、键盘快捷键、声音设置、轻柔动画和移动端布局。
 - 手机可一键全屏游玩；竖屏自动调整棋盘朝向，横屏把道具移至侧边。支持安全区和不提供原生全屏的浏览器。
-- 触屏按松手位置选块，图块间隙响应最近图块，滑动与兼容点击不会重复选中。短音效提前解码到内存，快速操作时仅播放最新一段音效；背景音乐独立循环。最后一对闪电播放完成后才出现结算。
+- 触屏按松手位置选块，图块间隙响应最近图块，滑动与兼容点击不会重复选中。短音效提前解码到内存，快速操作时仅播放最新一段音效；背景音乐独立循环。最后一对闪电播放完成后才出现结算，并播放一次胜利音效。提示文字位于棋盘下沿之外，不遮挡图块。
 - 每关均可继续下一关，不以星级限制进度。重力玩法留作后续扩展。
 
 快捷键：空格暂停/继续，`H` 提示，`R` 洗牌，`B` 破障，`Esc` 暂停/关闭弹窗。
@@ -127,6 +127,6 @@ cd /opt/wire-pairs
 docker compose exec app npm run admin:create -- --username admin
 ```
 
-构建时 `VITE_ASSET_BASE_URL=https://cdn.ichenj.com/llk/` 指定图片和音频根路径。`scripts/oss-assets.py` 从本地忽略目录 `.work/secrets` 读取 OSS 凭据并上传 `public/assets`；密钥不进入客户端、镜像、Git 或 Actions。短音效通过 CDN 上带内容哈希的 `audio/effects-*.js` 资源包一次加载，Web Audio 提前解码并以交互低延迟模式播放；不支持时回退到可复用媒体播放器。背景音乐仍为一首 `bg.mp3` 循环播放。闪电纹理只用于绘制，不读取跨域画布像素。
+构建时 `VITE_ASSET_BASE_URL=https://cdn.ichenj.com/llk/` 指定图片和音频根路径。`scripts/oss-assets.py` 从本地忽略目录 `.work/secrets` 读取 OSS 凭据并上传 `public/assets`；密钥不进入客户端、镜像、Git 或 Actions。短音效通过 CDN 上带内容哈希的 `audio/effects-*.js` 资源包一次加载，Web Audio 提前解码并以交互低延迟模式播放；不支持时回退到可复用媒体播放器。背景音乐固定循环播放用户试听确认的 `bg-legacy-2015.mp3`（2015 年复刻项目资源），功能升级不切换曲目。闪电纹理只用于绘制，不读取跨域画布像素。
 
 修改原始短音效后运行 `node scripts/build-audio-bank.mjs`，提交生成的资源包和路径模块，再上传新增资源到 OSS。资源包使用经典 script 传输，兼容共享 CDN 的既有跨域头，无需改动其他站点配置。

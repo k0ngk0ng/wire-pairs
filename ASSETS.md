@@ -14,3 +14,5 @@
 视觉核对参考：[QQ 连连看客户端截图](https://github.com/gyk001/QQ_LLK_Cheat/blob/master/raw/llk_demo.png)。企鹅、动物、星星、手势、彩球等图案与参考截图一致。来源为公开复刻项目，不声称这些文件是腾讯官方发布的资源包；音效使用该项目提供的经典素材，尚未通过官方原始包做二进制一致性验证。
 
 背景、障碍物、按钮、布局、登录页和 Logo 在本项目中以 CSS / SVG 实现；界面线性图标使用 Lucide。游戏运行时不依赖外部图片或字体服务。
+
+当前背景配乐 `audio/bg-legacy-2015.mp3` 来自 [sexdevil/lianliankan](https://github.com/sexdevil/lianliankan) 的 2015 年提交 `18d9111ebc4b6e77dc31bdb9e45c65fb00659111`，同仓库 `sound/bg.mid` 的曲名元数据为「找对子」。用户于 2026-10-05 试听确认使用这首配乐，自 v1.1.2 起固定为游戏默认背景音乐。未认证为腾讯官方客户端原始文件。原 `bg.mp3` 保留来源记录，但不再播放。

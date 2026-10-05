@@ -104,3 +104,11 @@ main{max-width:1240px;margin:0 auto;padding:39px 0 0}.page-heading{display:flex;
 .game-focused .fullscreen-button{padding:0;white-space:nowrap}
 
 .version-label{font-size:10px;font-weight:400;letter-spacing:.3px;opacity:.65;white-space:nowrap;margin-left:8px}.focus-version{display:none}.game-focused .tool-bar{position:relative}.game-focused .focus-version{display:block;position:absolute;right:12px;bottom:0;font-size:8px;line-height:8px;pointer-events:none}
+
+/* Feedback occupies its own row, never the board or a tile hit area. */
+.game-feedback{min-height:24px;margin:0 14px;padding:5px 9px;display:flex;align-items:center;justify-content:center;gap:6px;color:#6b7f52;font-size:11px;line-height:20px;text-align:center}
+.game-feedback:empty{padding-top:0;padding-bottom:0}
+.game-feedback>svg{flex-shrink:0}
+.game-focused .game-feedback{flex-shrink:0;margin:0 8px;font-size:10px;min-height:24px;padding:2px 6px;line-height:20px}
+.game-focused .game-feedback:empty{padding-top:0;padding-bottom:0}
+@media(orientation:landscape) and (max-height:600px){.game-focused .game-card{grid-template-rows:auto auto minmax(0,1fr) auto}.game-focused .game-feedback{grid-column:1 / -1;grid-row:4;margin:0;min-height:24px;padding:2px 4px;line-height:20px}}

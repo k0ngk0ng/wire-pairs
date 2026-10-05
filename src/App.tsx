@@ -69,6 +69,7 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
   const conflictRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef(game); gameRef.current = game;
   const messageId = useRef(-1);
+  const victorySoundEvent = useRef<Game['event'] | null>(null);
   const touch = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null);
   const touchEnded = useRef(0);
   const sync = useCloudSave(game, user.id, cloud, onSessionExpired);
@@ -132,6 +133,12 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
     void audio.play(game.event.type === 'won' && game.event.path ? 'match' : game.event.type);
     if (game.event.text) setToast(game.event.text);
   }, [game.event]);
+  useLayoutEffect(() => {
+    if (resultReady && game.status === 'won' && game.event.path && victorySoundEvent.current !== game.event) {
+      victorySoundEvent.current = game.event;
+      audio.play('won');
+    }
+  }, [resultReady, game.status, game.event]);
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(''), 3200); return () => clearTimeout(timer); }, [toast]);
   const openModal = useCallback((which: typeof modal) => { dispatch({ type: 'pause' }); setModal(which); }, []);
   useEffect(() => { if (assetFailed) dispatch({ type: 'pause' }); }, [assetFailed]);
@@ -225,9 +232,9 @@ export default function App({ initialGame, cloud, user, onSessionExpired, onLoad
             {game.status === 'paused' && !modal && !gallery && <div className="board-overlay"><div className="pause-medallion"><Pause size={30} /></div><h3>让快乐歇一会儿</h3><p>时间已暂停，进度好好保留着。</p><button className="primary-button" onClick={() => act({ type: 'resume' })}><Play size={17} fill="currentColor" /> 继续游戏</button><button className="text-button light" onClick={() => openModal('retry')}>重新挑战本关</button></div>}
             {resultReady && <div className="board-overlay result-overlay"><div className="result-symbol">{game.status === 'won' ? <Trophy size={37} /> : <Clock3 size={37} />}</div><div className="eyebrow light">{game.status === 'won' ? 'A LITTLE WIN, A LOT OF JOY' : 'TAKE A BREATH & TRY AGAIN'}</div><h3>{game.status === 'won' ? '漂亮！又闯过一关' : '差一点，下次一定'}</h3>{game.status === 'won' ? <><div className="result-stars">{[1, 2, 3].map(n => <Star key={n} size={32} fill={n <= stars(game) ? 'currentColor' : 'transparent'} className={n <= stars(game) ? '' : 'unearned'} />)}</div><p>得分 {game.score.toLocaleString()} · 剩余 {fmt(game.remaining)} · 最高 {game.maxCombo} 连击</p><button className="primary-button" onClick={() => act({ type: 'next' })}>下一关 · {titles[mechanicFor(game.level.number + 1)]} <ArrowRight size={18} /></button></> : <><p>本关已完成 {Math.round(progress * 100)}%，换个思路再试试。</p><button className="primary-button" onClick={() => act({ type: 'retry' })}><RotateCcw size={17} /> 免费再试一次</button></>}<button className="text-button light" onClick={() => openModal('new')}>开启新的旅程</button></div>}
             {assetFailed && <div className="board-overlay"><h3>图标暂时没有加载完成</h3><p>请刷新页面重试，当前进度已保存。</p><button className="primary-button" onClick={() => location.reload()}>重新加载</button></div>}
-            {toast && <div className="toast" role="status"><Sparkles size={16} />{toast}</div>}
           </div>
 
+          <div className="game-feedback" role="status" aria-live="polite">{toast && <><Sparkles size={14} /><span>{toast}</span></>}</div>
           <div className="tool-bar"><div className="tool-group">
             <button className="tool-button" disabled={locked || game.tools.hint === 0} onClick={() => act({ type: 'hint' })} title="提示（H）"><span className="tool-icon hint-icon"><Lightbulb size={22} /></span><span><strong>提示 <kbd>H</kbd></strong><small>发现一对好搭档</small></span><b>{game.tools.hint}</b></button>
             <button className="tool-button" disabled={locked || game.tools.shuffle === 0} onClick={() => act({ type: 'shuffle' })} title="洗牌（R）"><span className="tool-icon shuffle-icon"><Shuffle size={21} /></span><span><strong>洗牌 <kbd>R</kbd></strong><small>换个思路继续连</small></span><b>{game.tools.shuffle}</b></button>

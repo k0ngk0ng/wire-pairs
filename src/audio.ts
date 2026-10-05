@@ -19,7 +19,7 @@ export class GameAudio {
   }
   private prepare() {
     if (this.music) return;
-    this.music = this.create('bg.mp3'); this.music.element.loop = true;
+    this.music = this.create('bg-legacy-2015.mp3'); this.music.element.loop = true;
     for (const [file, count] of [['sel.wav', 1], ['elec.wav', 1], ['start.wav', 1], ['end.wav', 1], ['itemboom.wav', 1]] as const)
       this.voices.set(file, Array.from({ length: count }, () => this.create(file)));
   }

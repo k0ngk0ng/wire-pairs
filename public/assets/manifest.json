@@ -391,6 +391,13 @@
       "source": "https://raw.githubusercontent.com/allfornaruto/ts-kyodai/4990ba00e7b796a5a366f7cea78c3bfa8248c15c/assets/img/block/icon/9.png",
       "bytes": 5040,
       "sha256": "f58e2ff12b76dd1b06cc66215d39e96a73e10985846b7102a7c6fe26034f1aff"
+    },
+    {
+      "file": "audio/bg-legacy-2015.mp3",
+      "source": "https://raw.githubusercontent.com/sexdevil/lianliankan/18d9111ebc4b6e77dc31bdb9e45c65fb00659111/sound/bg.mp3",
+      "bytes": 1380480,
+      "sha256": "22873010eeeef1f06414250abf7d6e2e3b27a7fa111d31c36723bbfeb69de72c",
+      "note": "User selected this recording on 2026-10-05; default background music since v1.1.2. Not verified against an official client."
     }
   ]
 }
